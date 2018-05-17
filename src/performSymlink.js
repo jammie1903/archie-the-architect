@@ -1,6 +1,6 @@
 const path = require("path");
 const fs = require("fs");
-const exists = require("./exists");
+const exists = require("./config/exists");
 const symlinkDir = require('symlink-dir');
 const chalk = require("chalk");
 

@@ -1,6 +1,6 @@
 {
-  "name": "task-combiner",
-  "version": "0.0.1",
+  "name": "archie-the-architect",
+  "version": "0.0.2",
   "description": "A command-line tool for running multiple tasks in one window, with some additional utilities",
   "main": "src/index.js",
   "dependencies": {
@@ -10,15 +10,20 @@
     "home-dir": "^1.0.0",
     "readline-sync": "^1.4.9",
     "symlink-dir": "^1.1.3",
+    "yargonaut": "^1.1.2",
     "yargs": "^11.0.0"
   },
   "devDependencies": {},
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
+  "author": "Jamie Pennell",
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jammie1903/task-combiner"
+  },
   "bin": {
-    "run-all": "./src/index.js"
+    "archie": "./src/index.js"
   }
 }

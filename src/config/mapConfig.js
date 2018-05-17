@@ -1,9 +1,13 @@
+const exists = require("./exists");
+const UserError = require("../utils/userError");
+const getTasks = require("./getTasks");
+
 const path = require("path");
 const callLocation = process.cwd();
 const colors = ["green", "blue", "yellow", "magenta", "cyan", "white"];
 const defaultSymlinkDirectories = "src,dist";
 
-module.exports = (directories, allAargs) => {
+module.exports = (allAargs) => {
 
     const command = (allAargs.command || "npm start").trim();
     const commandIndex = command.indexOf(" ");
@@ -13,13 +17,22 @@ module.exports = (directories, allAargs) => {
     const awaitGlobal = allAargs.await || false;
     const symlinkGlobal = allAargs.symlink || false;
 
-    const duplicateArray = directories.reduce((acc, d) => {
+    const duplicateArray = allAargs.folders.reduce((acc, d) => {
         const name = d.substring(d.lastIndexOf(path.sep) + 1);
         acc[name] = acc[name] ? acc[name] + 1 : 1;
         return acc;
     }, {})
 
-    return directories.map((d, i) => {
+    return allAargs.folders.map((d, i) => {
+
+        const location = callLocation + path.sep + d;
+        if(!exists(location, false)) {
+            let errorMessage = `No directory was found for '${d}', double check your current directory/folder names and try again`
+            if(allAargs.folders.length === 1 && getTasks().indexOf(d) !== -1) {
+                errorMessage += `\nDid you mean to run the task '${d}'? if so, use the command 'run-task'`;
+            }
+            throw new UserError(errorMessage);
+        }
 
         let buildCommandRaw = allAargs[`command[${i}]`];
         let buildCommand, buildCommandArgs;
@@ -43,7 +56,7 @@ module.exports = (directories, allAargs) => {
         }
 
         return {
-            location: callLocation + path.sep + d,
+            location,
             displayName: duplicateArray[d.substring(d.lastIndexOf(path.sep) + 1)] > 1 ? d : d.substring(d.lastIndexOf(path.sep) + 1),
             command: buildCommand,
             commandArgs: buildCommandArgs,

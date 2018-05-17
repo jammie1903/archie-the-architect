@@ -1,119 +1,118 @@
 #!/usr/bin/env node
-const chalk = require('chalk');
-const spawn = require('cross-spawn');
+
+const chalk = require("chalk");
 const path = require("path");
 const fs = require("fs");
 const fse = require("fs-extra");
-const homeDirectory = require('home-dir').directory;
 
-const storageFolder = path.join(homeDirectory, "bin", "run-all");
-
-const allAargs = require("yargs").argv;
-const aargs = allAargs._;
-
+const storageFolder = require("./rootFolder")
 const confirm = require("./confirm");
-const exists = require("./exists");
-const mapConfig = require("./mapConfig");
-const performSymlink = require("./performSymlink");
+const exists = require("./config/exists");
+const loadConfig = require("./config/loadConfig");
+const mapConfig = require("./config/mapConfig");
+const runProjects = require("./runProjects");
+const highlightJson = require("./config/highlight");
+const handleError = require("./utils/handleError");
+const getTasks = require("./config/getTasks");
 
-const directories = allAargs._;
+const yargonaut = require("yargonaut")
+    .style("green")
+    .style("green", "Positionals:")
+    .errorsStyle("red.bold");
+try {
+    require("yargs")
+        .command(`run <folders..>`, chalk.yellow("Runs the given projects"), (yargs) => {
+            yargs
+                .positional("folders..", {
+                    describe: "The relative folders of the projects to build",
+                    type: "string",
+                })
+                .option("command", {
+                    describe: "The command to run for all folders",
+                    type: "string",
+                    default: "npm start"
+                })
+                .option("command[i]", {
+                    describe: "The command to run for the folder at the given index, overrides the default command",
+                    type: "string",
+                })
+                .option("await", {
+                    describe: "If true, all folders will await the completion of the previous folder before starting, " +
+                        "if the value is a string, all folders will await the previous folder logging the given string before starting",
+                })
+                .option("await[i]", {
+                    describe: "Await rules for the folder at the given index, overrides the default await option",
+                })
+                .option("symlink", {
+                    describe: "Whether to symlink this project into subsequent projects node-modules. if true, the folders 'src' and 'dist' will be symlinked if found. " +
+                        "A comma separated string array can be specified to choose different folders to link",
+                })
+                .option("symlink[i]", {
+                    describe: "Symlink rules for the folder at the given index, overrides the default symlink option",
+                })
+                .option("dry-run", {
+                    describe: "Dont run the specified folders, instead log the generated config to check its correct",
+                    type: "boolean",
+                })
+                .option("save-as", {
+                    describe: "Saves the specified config for later use",
+                })
+        }, run)
+        .command(`run-task <task>`, chalk.yellow("Runs the given task"), (yargs) => {
+            yargs
+                .positional("task", {
+                    describe: "The task to run",
+                    type: "string",
+                })
+        }, runTask)
+        .command(`list-tasks`, chalk.yellow("Prints the currently saved tasks"), (yargs) => { }, listTasks)
+        .command(`describe <task>`, chalk.yellow("Shows the given tasks config"), (yargs) => {
+            yargs
+                .positional("task", {
+                    describe: "The task to examine",
+                    type: "string",
+                })
+        }, describe)
+        .command(`root`, chalk.yellow("Prints the root folder for saved task configurations"), (yargs) => { }, showRoot)
+        .demandCommand(1, 1, chalk.red.bold("You need to specify a command before moving on"))
+        .wrap(120)
+        .argv;
+} catch (e) {
+    handleError(e);
+}
+function run(args) {
+    const config = mapConfig(args);
 
-let config;
-if (directories.length) {
-    config = mapConfig(directories, allAargs);
-
-    if (allAargs.saveAs) {
-        const filename = path.join(storageFolder, allAargs.saveAs + ".json");
-        if (!exists(filename) || confirm(`"${allAargs.saveAs}" already exists, are you sure you want to overrride it?`)) {
-            fse.outputFileSync(filename, JSON.stringify(config, null, ' '));
-            console.log(chalk.yellow.bold(`"${allAargs.saveAs}" saved, use run-all --task="${allAargs.saveAs}" to run this in the future`));
+    if (args.saveAs) {
+        const filename = path.join(storageFolder, args.saveAs + ".json");
+        if (!exists(filename) || confirm(`"${args.saveAs}" already exists, are you sure you want to overrride it?`)) {
+            fse.outputFileSync(filename, JSON.stringify(config, null, " "));
+            console.log(chalk.yellow.bold(`"${args.saveAs}" saved, use run-task ${args.saveAs} to run this in the future`));
         }
     }
 
-} else if (allAargs.task) {
-    const filename = path.join(storageFolder, allAargs.task + ".json");
-    if (exists(filename)) {
-        try {
-            config = JSON.parse(fs.readFileSync(filename, 'utf8'));
-        } catch (e) {
-            console.error(`The config file for "${allAargs.task}" is invalid: ${e.message}`);
-        }
-    } else {
-        console.error(`could not find task "${allAargs.task}"`);
+    if (args.dryRun) {
+        console.log(highlightJson(config));
+        return;
     }
-} else {
-    console.error("please specify at least one directory to build, or specifiy a task to run");
+
+    return runProjects(config)
+        .catch(e => handleError(e));
 }
 
-if (!config) {
-    return;
+function runTask(args) {
+    return runProjects(loadConfig(args.task))
+        .catch(e => handleError(e));
 }
 
-if (allAargs.dryRun) {
-    console.log(config);
-    return;
+function describe(args) {
+    console.log(highlightJson(loadConfig(args.task)));
 }
 
-const longestLength = config.map(s => s.displayName.length).reduce((a, b) => Math.max(a, b));
+function listTasks() {
+    getTasks().forEach(t => console.log(t));
+}
 
-let promise = Promise.resolve();
-config.forEach((entry, index) => {
-
-    promise = promise.then(() => new Promise((res, rej) => {
-        let resolved = false;
-
-        const padding = " ".repeat(longestLength - entry.displayName.length);
-        const prefix = chalk[entry.color].bold(`${padding}${entry.displayName}: `);
-        const errorPrefix = prefix + chalk.red.bold("(ERROR) ");
-
-        console.log(`${prefix}Running command "${entry.command} ${entry.commandArgs}"`);
-        const process = spawn(entry.command, entry.commandArgs, { cwd: entry.location });
-
-
-        process.on('error', (err) => {
-            console.log(`${errorPrefix}errored with err ${err}`);
-            if (!resolved) {
-                res();
-                resolved = true;
-            }
-        });
-
-        process.on('close', (code) => {
-            console.log(`${prefix}exited with code ${code}`);
-            if (!resolved) {
-                res();
-                resolved = true;
-            }
-        });
-
-        process.stdout.on('data', (data) => {
-            const dataString = String(data);
-            dataString.trim().split("\n").forEach(dataLine => {
-                console.log(prefix + dataLine);
-            });
-            if (!resolved && typeof entry.await === "string" && dataString.indexOf(entry.await) !== -1) {
-                res();
-                resolved = true;
-            }
-        });
-
-        process.stderr.on('data', (data) => {
-            const dataString = String(data);
-            dataString.trim().split("\n").forEach(dataLine => {
-                console.log(errorPrefix + dataLine);
-            });
-            if (!resolved && typeof entry.await === "string" && dataString.indexOf(entry.await) !== -1) {
-                res();
-                resolved = true;
-            }
-        });
-        if (!entry.await) {
-            res();
-            resolved = true;
-        }
-    }));
-
-    if(entry.symlink && index !== config.length - 1) {
-        promise = promise.then(() => performSymlink(index, config));
-    }
-});
+function showRoot() {
+    console.log(storageFolder);
+}
