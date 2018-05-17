@@ -27,14 +27,13 @@ module.exports = function runProjects(config) {
 
             const padding = " ".repeat(longestLength - entry.displayName.length);
             const prefix = chalk[entry.color].bold(`${padding}${entry.displayName}: `);
-            const errorPrefix = prefix + chalk.red.bold("(ERROR) ");
-
+            
             console.log(`${prefix}Running command "${entry.command} ${entry.commandArgs}"`);
             const process = spawn(entry.command, entry.commandArgs, { cwd: entry.location });
 
 
             process.on('error', (err) => {
-                console.log(`${errorPrefix}errored with err ${err}`);
+                console.log(`${prefix}errored with err ${err}`);
                 if (!resolved) {
                     res();
                     resolved = true;
@@ -63,7 +62,7 @@ module.exports = function runProjects(config) {
             process.stderr.on('data', (data) => {
                 const dataString = String(data);
                 dataString.trim().split("\n").forEach(dataLine => {
-                    console.log(errorPrefix + dataLine);
+                    console.log(prefix + dataLine);
                 });
                 if (!resolved && typeof entry.await === "string" && dataString.indexOf(entry.await) !== -1) {
                     res();
