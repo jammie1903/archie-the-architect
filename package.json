@@ -21,7 +21,7 @@
   "license": "ISC",
   "repository": {
     "type": "git",
-    "url": "https://github.com/jammie1903/task-combiner"
+    "url": "https://github.com/jammie1903/archie-the-architect"
   },
   "bin": {
     "archie": "./src/index.js"
