@@ -8,17 +8,19 @@ Archie is best used globally, so to install, run `npm install -g archie-the-arch
 
 ## Commands
 
-  `run <folders..>`  Runs the given projects
+  `run <folders..>`    Runs the given projects
 
-  `run-task <task>`  Runs the given task
+  `run-task <task>`    Runs the given task, leave blank to list all tasks for selection
 
-  `list-tasks`       Prints the currently saved tasks
+  `delete-task <task>` Deletes the given task
 
-  `describe <task>`  Shows the given tasks config
+  `list-tasks`         Prints the currently saved tasks
 
-  `root`             Prints the root folder for saved task configurations
+  `describe <task>`    Shows the given tasks config
 
-  `help`             Prints out help for archie as a whole, or for individual tasks
+  `root`               Prints the root folder for saved task configurations
+
+  `help`               Prints out help for archie as a whole, or for individual tasks
 
 ## Example usage
 
