@@ -1,6 +1,7 @@
 const path = require("path");
 const fs = require("fs");
 const exists = require("./exists");
+const UserError = require("../utils/userError");
 const storageFolder = require("../rootFolder")
 
 module.exports = function loadConfig(task) {
@@ -9,9 +10,9 @@ module.exports = function loadConfig(task) {
         try {
             return JSON.parse(fs.readFileSync(filename, "utf8"));
         } catch (e) {
-            console.error(`The config file for "${task}" is invalid: ${e.message}`);
+            throw new UserError(`The config file for "${task}" is invalid: ${e.message}`);
         }
     } else {
-        console.error(`could not find task "${task}"`);
+        throw new UserError(`Could not find task "${task}"`);
     }
 }

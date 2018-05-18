@@ -6,10 +6,12 @@ const fs = require("fs");
 const fse = require("fs-extra");
 
 const storageFolder = require("./rootFolder")
-const confirm = require("./confirm");
+const UserError = require("./utils/userError");
+const { confirm, select } = require("./utils/input");
 const exists = require("./config/exists");
 const loadConfig = require("./config/loadConfig");
 const mapConfig = require("./config/mapConfig");
+const deleteConfig = require("./config/deleteConfig");
 const runProjects = require("./runProjects");
 const highlightJson = require("./config/highlight");
 const handleError = require("./utils/handleError");
@@ -58,13 +60,20 @@ try {
                     describe: "Saves the specified config for later use",
                 })
         }, run)
-        .command(`run-task <task>`, chalk.yellow("Runs the given task"), (yargs) => {
+        .command(`run-task [task]`, chalk.yellow("Runs the given task"), (yargs) => {
             yargs
                 .positional("task", {
-                    describe: "The task to run",
+                    describe: "The task to run, leave blank to list all tasks for selection",
                     type: "string",
                 })
         }, runTask)
+        .command(`delete-task <task>`, chalk.yellow("Deletes the given task"), (yargs) => {
+            yargs
+                .positional("task", {
+                    describe: "The task to delete",
+                    type: "string",
+                })
+        }, deleteTask)
         .command(`list-tasks`, chalk.yellow("Prints the currently saved tasks"), (yargs) => { }, listTasks)
         .command(`describe <task>`, chalk.yellow("Shows the given tasks config"), (yargs) => {
             yargs
@@ -80,29 +89,71 @@ try {
 } catch (e) {
     handleError(e);
 }
+
+function saveFile(name, filename, config) {
+    fse.outputFileSync(filename, JSON.stringify(config, null, " "));
+    console.log(chalk.yellow.bold(`"${name}" saved, use run-task ${name} to run this in the future`));
+}
+
 function run(args) {
     const config = mapConfig(args);
 
+    let promise = Promise.resolve();
+
     if (args.saveAs) {
         const filename = path.join(storageFolder, args.saveAs + ".json");
-        if (!exists(filename) || confirm(`"${args.saveAs}" already exists, are you sure you want to overrride it?`)) {
-            fse.outputFileSync(filename, JSON.stringify(config, null, " "));
-            console.log(chalk.yellow.bold(`"${args.saveAs}" saved, use run-task ${args.saveAs} to run this in the future`));
+
+        if (exists(filename)) {
+            promise = confirm(`"${args.saveAs}" already exists, are you sure you want to overrride it?`)
+                .then(confirmed => {
+                    if (confirmed) {
+                        saveFile(args.saveAs, filename, config)
+                    }
+                });
+        } else {
+            saveFile(args.saveAs, filename, config)
         }
     }
 
-    if (args.dryRun) {
-        console.log(highlightJson(config));
-        return;
-    }
-
-    return runProjects(config)
-        .catch(e => handleError(e));
+    return promise.then(() => {
+        if (args.dryRun) {
+            console.log(highlightJson(config));
+            return;
+        }
+        runProjects(config)
+    }).catch(e => handleError(e));
 }
 
 function runTask(args) {
-    return runProjects(loadConfig(args.task))
+    let taskPromise;
+    if (!args.task) {
+        const tasks = getTasks();
+        if (!tasks) {
+            throw new UserError("Looks like you have no saved tasks, use the --save-as parameter in \"run\" to create one");
+        }
+        taskPromise = select("Select a task to run", getTasks());
+    } else {
+        taskPromise = Promise.resolve(args.task);
+    }
+
+    return taskPromise
+        .then(task => runProjects(loadConfig(task)))
         .catch(e => handleError(e));
+}
+
+function deleteTask(args) {
+    const filename = path.join(storageFolder, args.task + ".json");
+    if (!exists(filename)) {
+        throw new UserError(`Could not find task "${args.task}"`);
+    } else {
+        confirm("Are you sure you want to delete this task?")
+            .then(confirmed => {
+                if (confirmed) {
+                    deleteConfig(args.task);
+                    console.log(chalk.yellow.bold(`"${args.task}" has been deleted`));
+                }
+            })
+    }
 }
 
 function describe(args) {
