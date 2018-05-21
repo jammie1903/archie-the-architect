@@ -22,6 +22,10 @@ Archie is best used globally, so to install, run `npm install -g archie-the-arch
 
   `help`               Prints out help for archie as a whole, or for individual tasks
 
+  `config`             Set global config for archie
+            
+  `update`             Updates archie to the latest version
+
 ## Example usage
 
 ### Npm installing multiple projects

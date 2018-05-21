@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+const { checkVersion, setConfig, runUpdate } = require("./utils/globalConfig");
+const versionPromise = checkVersion();
+
 const chalk = require("chalk");
 const path = require("path");
 const fs = require("fs");
@@ -17,13 +20,21 @@ const highlightJson = require("./config/highlight");
 const handleError = require("./utils/handleError");
 const getTasks = require("./config/getTasks");
 
+function start(method) {
+    return (args) => {
+        versionPromise.then(() => {
+            method(args);
+        });
+    }
+}
+
 const yargonaut = require("yargonaut")
     .style("green")
     .style("green", "Positionals:")
     .errorsStyle("red.bold");
 try {
     require("yargs")
-        .command(`run <folders..>`, chalk.yellow("Runs the given projects"), (yargs) => {
+        .command("run <folders..>", chalk.yellow("Runs the given projects"), (yargs) => {
             yargs
                 .positional("folders..", {
                     describe: "The relative folders of the projects to build",
@@ -59,32 +70,46 @@ try {
                 .option("save-as", {
                     describe: "Saves the specified config for later use",
                 })
-        }, run)
-        .command(`run-task [task]`, chalk.yellow("Runs the given task"), (yargs) => {
+        }, start(run))
+        .command("run-task [task]", chalk.yellow("Runs the given task"), (yargs) => {
             yargs
                 .positional("task", {
                     describe: "The task to run, leave blank to list all tasks for selection",
                     type: "string",
                 })
-        }, runTask)
-        .command(`delete-task <task>`, chalk.yellow("Deletes the given task"), (yargs) => {
+        }, start(runTask))
+        .command("delete-task <task>", chalk.yellow("Deletes the given task"), (yargs) => {
             yargs
                 .positional("task", {
                     describe: "The task to delete",
                     type: "string",
                 })
-        }, deleteTask)
-        .command(`list-tasks`, chalk.yellow("Prints the currently saved tasks"), (yargs) => { }, listTasks)
-        .command(`describe <task>`, chalk.yellow("Shows the given tasks config"), (yargs) => {
+        }, start(deleteTask))
+        .command("list-tasks", chalk.yellow("Prints the currently saved tasks"), (yargs) => { }, start(listTasks))
+        .command("describe <task>", chalk.yellow("Shows the given tasks config"), (yargs) => {
             yargs
                 .positional("task", {
                     describe: "The task to examine",
                     type: "string",
                 })
-        }, describe)
-        .command(`root`, chalk.yellow("Prints the root folder for saved task configurations"), (yargs) => { }, showRoot)
+        }, start(describe))
+        .command("config", chalk.yellow("Set global config for archie"), (yargs) => {
+            yargs
+                .option("prevent-update-checks", {
+                    describe: "Prevents archie from checking if its out of date",
+                    type: "boolean",
+                    default: null
+                })
+                .option("update-automatically", {
+                    describe: "If set, archie will update itself whenever it realises its out of date",
+                    type: "boolean",
+                    default: null
+                })
+        }, setConfig)
+        .command("root", chalk.yellow("Prints the root folder for saved task configurations"), (yargs) => { }, start(showRoot))
+        .command("update", chalk.yellow("Updates archie to the latest version"), (yargs) => { }, runUpdate)
         .demandCommand(1, 1, chalk.red.bold("You need to specify a command before moving on"))
-        .wrap(120)
+        .wrap(130)
         .argv;
 } catch (e) {
     handleError(e);
