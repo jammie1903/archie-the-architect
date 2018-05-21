@@ -10,6 +10,20 @@ function link(src, dest, coloredSrc, coloredDest) {
         .catch(err => console.error(chalk.red(`Error occured whilst attempting to symlink ${coloredSrc} to ${coloredDest}`, err)));
 }
 
+function deleteFolderRecursive(filepath) {
+    if(fs.existsSync(filepath) ) {
+        fs.readdirSync(filepath).forEach(function(file) {
+          var curPath = filepath + path.sep + file;
+            if(fs.statSync(curPath).isDirectory()) {
+                deleteFolderRecursive(curPath);
+            } else {
+                fs.unlinkSync(curPath);
+            }
+        });
+        fs.rmdirSync(filepath);
+      }
+  };
+
 module.exports = (index, config) => {
     const entry = config[index];
 
@@ -60,7 +74,7 @@ module.exports = (index, config) => {
                             } else {
                                 console.log(`File or folder already existed at ${coloredDest}, deleting file`);
                                 try {
-                                    fs.unlinkSync(dest);
+                                    deleteFolderRecursive(dest);
                                 } catch (e) {
                                     console.log(`File at ${coloredDest} could not be deleted`, e);
                                     return;

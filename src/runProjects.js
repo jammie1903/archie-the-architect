@@ -23,12 +23,19 @@ module.exports = function runProjects(config) {
     config.forEach((entry, index) => {
 
         promise = promise.then(() => new Promise((res, rej) => {
-            let resolved = false;
 
             const padding = " ".repeat(longestLength - entry.displayName.length);
             const prefix = chalk[entry.color].bold(`${padding}${entry.displayName}: `);
 
-            console.log(`${prefix}Running command "${entry.command} ${entry.commandArgs}"`);
+            if(!entry.command || !entry.command.trim()) {
+                console.log(`${prefix}No command specified, skipping run step`);
+                res();
+                return;
+            }
+
+            let resolved = false;
+
+            console.log(`${prefix}Running command "${entry.command}${entry.commandArgs.length ? " " + entry.commandArgs.join(" ") : ""}"`);
             const process = spawn(entry.command, entry.commandArgs, { cwd: entry.location });
 
 

@@ -4,7 +4,7 @@ const getTasks = require("./getTasks");
 
 const path = require("path");
 const callLocation = process.cwd();
-const colors = ["green", "blue", "yellow", "magenta", "cyan", "white"];
+const colors = ["green", "blue", "yellow", "magenta", "cyan", "gray", "white"];
 const defaultSymlinkDirectories = "src,dist";
 
 module.exports = (allAargs) => {
